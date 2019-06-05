@@ -26,6 +26,7 @@ from magenta.models.coconet import lib_hparams
 from magenta.models.coconet import lib_util
 import numpy as np
 import tensorflow as tf
+#import ipdb
 
 FLAGS = tf.app.flags.FLAGS
 flags = tf.app.flags
@@ -156,8 +157,12 @@ def run_epoch(supervisor, sess, m, dataset, hparams, eval_op, experiment_type,
   # reduce variance in validation loss by fixing the seed
   data_seed = 123 if experiment_type == 'valid' else None
   with lib_util.numpy_seed(data_seed):
+    featuremaps = dataset.get_featuremaps()
+    #ipdb.set_trace()
+    #st.write(featuremaps)
+    #print("FEATUREMAPS: ", featuremaps)
     batches = (
-        dataset.get_featuremaps().batches(
+        featuremaps.batches(
             size=m.batch_size, shuffle=True, shuffle_rng=data_seed))
 
   losses = lib_util.AggregateMean('losses')
@@ -173,6 +178,8 @@ def run_epoch(supervisor, sess, m, dataset, hparams, eval_op, experiment_type,
         m.reduced_unmask_size, m.learning_rate, eval_op
     ]
     feed_dict = batch.get_feed_dict(m.placeholders)
+    #print("FEED DICT: ", feed_dict)
+    #ipdb.set_trace()
     (loss, loss_total, loss_mask, loss_unmask, reduced_mask_size,
      reduced_unmask_size, learning_rate, _) = sess.run(
          fetches, feed_dict=feed_dict)
@@ -184,10 +191,7 @@ def run_epoch(supervisor, sess, m, dataset, hparams, eval_op, experiment_type,
     losses_mask.add(loss_mask * reduced_mask_size, reduced_mask_size)
     losses_unmask.add(loss_unmask * reduced_unmask_size, reduced_unmask_size)
 
-    if hparams.optimize_mask_only:
-      losses.add(loss * reduced_mask_size, reduced_mask_size)
-    else:
-      losses.add(loss, 1)
+    losses.add(loss, 1)
 
   # Collect run statistics.
   run_stats = dict()
@@ -230,6 +234,7 @@ def main(unused_argv):
   print(FLAGS.maskout_method, 'separate', FLAGS.separate_instruments)
 
   hparams = _hparams_from_flags()
+  print('HPARAMS FROM FLAGS: ', hparams)
 
   # Get data.
   print('dataset:', FLAGS.dataset, FLAGS.data_dir)
@@ -257,9 +262,11 @@ def main(unused_argv):
     no_op = tf.no_op()
 
     # Build placeholders and training graph, and validation graph with reuse.
-    m = lib_graph.build_graph(is_training=True, hparams=hparams)
-    tf.get_variable_scope().reuse_variables()
-    mvalid = lib_graph.build_graph(is_training=False, hparams=hparams)
+    with tf.name_scope('train'):
+        m = lib_graph.build_graph(is_training=True, hparams=hparams)
+    with tf.name_scope('valid'):
+        tf.get_variable_scope().reuse_variables()
+        mvalid = lib_graph.build_graph(is_training=False, hparams=hparams)
 
     tracker = Tracker(
         label='validation loss',
@@ -276,22 +283,24 @@ def main(unused_argv):
         save_model_secs=FLAGS.save_model_secs)
     with sv.PrepareSession() as sess:
       epoch_count = 0
-      while epoch_count < FLAGS.num_epochs or not FLAGS.num_epochs:
+      #while epoch_count < FLAGS.num_epochs or not FLAGS.num_epochs:
+      while epoch_count < 1:
         if sv.should_stop():
           break
 
-        # Run training.
-        run_epoch(sv, sess, m, train_data, hparams, m.train_op, 'train',
-                  epoch_count)
-
-        # Run validation.
-        if epoch_count % hparams.eval_freq == 0:
-          estimate_popstats(sv, sess, m, train_data, hparams)
-          loss = run_epoch(sv, sess, mvalid, valid_data, hparams, no_op,
-                           'valid', epoch_count)
-          tracker(loss, sess)
-          if tracker.should_stop():
-            break
+        with tf.name_scope('run_training_epoch'):
+            # Run training.
+            run_epoch(sv, sess, m, train_data, hparams, m.train_op, 'train',
+                      epoch_count)
+        with tf.name_scope('run_validation_epoch'):
+            # Run validation.
+            if epoch_count % hparams.eval_freq == 0:
+              estimate_popstats(sv, sess, m, train_data, hparams)
+              loss = run_epoch(sv, sess, mvalid, valid_data, hparams, no_op,
+                               'valid', epoch_count)
+              tracker(loss, sess)
+              if tracker.should_stop():
+                break
 
         epoch_count += 1
 
@@ -371,8 +380,9 @@ def _hparams_from_flags():
       """.split())
   hparams = lib_hparams.Hyperparameters(**dict(
       (key, getattr(FLAGS, key)) for key in keys))
+  print("hparams: ", hparams)
   return hparams
 
 
 if __name__ == '__main__':
-  tf.app.run()
+  tf.app.run(main=main)

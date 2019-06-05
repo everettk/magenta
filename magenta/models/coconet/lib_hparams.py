@@ -224,19 +224,20 @@ class Hyperparameters(object):
 
   def get_conv_arch(self):
     """Returns the model architecture."""
-    return Architecture.make(
-        self.architecture,
-        self.input_depth,
-        self.num_layers,
-        self.num_filters,
-        self.num_pitches,
-        self.output_depth,
-        crop_piece_len=self.crop_piece_len,
-        num_dilation_blocks=self.num_dilation_blocks,
-        dilate_time_only=self.dilate_time_only,
-        repeat_last_dilation_level=self.repeat_last_dilation_level,
-        num_pointwise_splits=self.num_pointwise_splits,
-        interleave_split_every_n_layers=self.interleave_split_every_n_layers)
+    with tf.name_scope('get_conv_arch'):
+        return Architecture.make(
+            self.architecture,
+            self.input_depth,
+            self.num_layers,
+            self.num_filters,
+            self.num_pitches,
+            self.output_depth,
+            crop_piece_len=self.crop_piece_len,
+            num_dilation_blocks=self.num_dilation_blocks,
+            dilate_time_only=self.dilate_time_only,
+            repeat_last_dilation_level=self.repeat_last_dilation_level,
+            num_pointwise_splits=self.num_pointwise_splits,
+            interleave_split_every_n_layers=self.interleave_split_every_n_layers)
 
   def dump(self, file_object):
     yaml.dump(self.__dict__, file_object)

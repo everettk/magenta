@@ -189,7 +189,8 @@ class CoconetSampleGraph(object):
   def instantiate_sess_and_restore_checkpoint(self):
     """Instantiates session and restores from self.chkpt_path."""
     if self.samples is None:
-      self.build_sample_graph()
+      with tf.name_scope('sampling'):
+          self.build_sample_graph()
     sess = tf.Session()
     saver = tf.train.Saver()
     chkpt_fpath = tf.train.latest_checkpoint(self.chkpt_path)
@@ -326,16 +327,17 @@ def compute_mask_prob_from_yao_schedule(i, n, pmin=0.1, pmax=0.9, alpha=0.7):
 
 def main(unused_argv):
   checkpoint_path = FLAGS.checkpoint
-  sampler = CoconetSampleGraph(checkpoint_path)
+  with tf.name_scope('lib_tfsampling'):
+      sampler = CoconetSampleGraph(checkpoint_path)
 
-  batch_size = 1
-  decode_length = 4
-  target_shape = [batch_size, decode_length, 46, 4]
-  pianorolls = np.zeros(target_shape, dtype=np.float32)
-  generated_piece = sampler.run(pianorolls, sample_steps=16, temperature=0.99)
-  tf.logging.info("num of notes in piece %d", np.sum(generated_piece))
+      batch_size = 1
+      decode_length = 4
+      target_shape = [batch_size, decode_length, 46, 4]
+      pianorolls = np.zeros(target_shape, dtype=np.float32)
+      generated_piece = sampler.run(pianorolls, sample_steps=16, temperature=0.99)
+      tf.logging.info("num of notes in piece %d", np.sum(generated_piece))
 
-  tf.logging.info("Done.")
+      tf.logging.info("Done.")
 
 
 if __name__ == "__main__":

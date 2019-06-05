@@ -103,7 +103,8 @@ class CoconetGraph(object):
 
         self.hiddens.append(featuremaps)
 
-    self.logits = featuremaps
+    with tf.name_scope('logits'):
+        self.logits = featuremaps
     self.predictions = self.compute_predictions(logits=self.logits)
     self.cross_entropy = self.compute_cross_entropy(
         logits=self.logits, labels=self.pianorolls)
@@ -118,15 +119,17 @@ class CoconetGraph(object):
     """Returns concatenates masked out pianorolls with their masks."""
     # pianorolls, masks = self.inputs['pianorolls'], self.inputs[
     #     'masks']
-    pianorolls, masks = self.pianorolls, self.masks
-    pianorolls *= 1. - masks
-    if self.hparams.mask_indicates_context:
-      # flip meaning of mask for convnet purposes: after flipping, mask is hot
-      # where values are known. this makes more sense in light of padding done
-      # by convolution operations: the padded area will have zero mask,
-      # indicating no information to rely on.
-      masks = 1. - masks
-    return tf.concat([pianorolls, masks], axis=3)
+    with tf.name_scope('convnet_input'):
+        pianorolls, masks = self.pianorolls, self.masks
+        pianorolls *= 1. - masks
+        if self.hparams.mask_indicates_context:
+          print("MASK_INDICATES_CONTEXT: ", self.hparams.mask_indicates_context)
+          # flip meaning of mask for convnet purposes: after flipping, mask is hot
+          # where values are known. this makes more sense in light of padding done
+          # by convolution operations: the padded area will have zero mask,
+          # indicating no information to rely on.
+          masks = 1. - masks
+        return tf.concat([pianorolls, masks], axis=3)
 
   def setup_optimizer(self):
     """Instantiates learning rate, decay op and train_op among others."""
@@ -144,75 +147,81 @@ class CoconetGraph(object):
 
     # FIXME 0.5 -> hparams.decay_rate
     self.decay_op = tf.assign(self.learning_rate, 0.5 * self.learning_rate)
-    self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-    self.train_op = self.optimizer.minimize(self.loss)
+    with tf.name_scope('adam_optimizer'):
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+    with tf.name_scope('train_op'):
+        self.train_op = self.optimizer.minimize(self.loss)
 
   def compute_predictions(self, logits):
-    if self.hparams.use_softmax_loss:
-      return tf.nn.softmax(logits, dim=2)
-    return tf.nn.sigmoid(logits)
+    with tf.name_scope('predictions'):
+        if self.hparams.use_softmax_loss:
+            print("ARE WE USING SOFTMAX LOSS FOR PREDICTIONS: ", self.hparams.use_softmax_loss)
+            return tf.nn.softmax(logits, dim=2)
+        return tf.nn.sigmoid(logits)
 
   def compute_cross_entropy(self, logits, labels):
-    if self.hparams.use_softmax_loss:
-      # don't use tf.nn.softmax_cross_entropy because we need the shape to
-      # remain constant
-      return -tf.nn.log_softmax(logits, dim=2) * labels
-    else:
-      return tf.nn.sigmoid_cross_entropy_with_logits(
-          logits=logits, labels=labels)
+    with tf.name_scope('cross_entropy'):
+        if self.hparams.use_softmax_loss:
+          print("ARE WE USING SOFTMAX LOSS FOR CROSS ENTROPY: ", self.hparams.use_softmax_loss)
+          # don't use tf.nn.softmax_cross_entropy because we need the shape to
+          # remain constant
+          with tf.name_scope('softmax_loss'):
+              return -tf.nn.log_softmax(logits, dim=2) * labels
+        else:
+            with tf.name_scope('sigmoid_cross_entropy_with_logits'):
+                return tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
 
   def compute_loss(self, unreduced_loss):
     """Computes scaled loss based on mask out size."""
-    # construct mask to identify zero padding that was introduced to
-    # make the batch rectangular
-    batch_duration = tf.shape(self.pianorolls)[1]
-    indices = tf.to_float(tf.range(batch_duration))
-    pad_mask = tf.to_float(
-        indices[None, :, None, None] < self.lengths[:, None, None, None])
+    with tf.name_scope('compute_loss'):
+        # construct mask to identify zero padding that was introduced to
+        # make the batch rectangular
+        batch_duration = tf.shape(self.pianorolls)[1]
+        print("BATCH DURATION: ", batch_duration)
+        indices = tf.to_float(tf.range(batch_duration))
+        pad_mask = tf.to_float(
+            indices[None, :, None, None] < self.lengths[:, None, None, None])
+        print("PAD MASK: ", pad_mask)
 
-    # construct mask and its complement, respecting pad mask
-    mask = pad_mask * self.masks
-    unmask = pad_mask * (1. - self.masks)
+        # construct mask and its complement, respecting pad mask
+        mask = pad_mask * self.masks
+        unmask = pad_mask * (1. - self.masks)
 
-    # Compute numbers of variables
-    # #timesteps * #variables per timestep
-    variable_axis = 3 if self.hparams.use_softmax_loss else 2
-    dd = (
-        self.lengths[:, None, None, None] * tf.to_float(
-            tf.shape(self.pianorolls)[variable_axis]))
-    reduced_dd = tf.reduce_sum(dd)
+        # Compute numbers of variables
+        # #timesteps * #variables per timestep
+        dd = (
+            self.lengths[:, None, None, None] * tf.to_float(
+                tf.shape(self.pianorolls)[3])) # 3 is the variable axis
+        reduced_dd = tf.reduce_sum(dd)
 
-    # Compute numbers of variables to be predicted/conditioned on
-    mask_size = tf.reduce_sum(mask, axis=[1, variable_axis], keep_dims=True)
-    unmask_size = tf.reduce_sum(unmask, axis=[1, variable_axis], keep_dims=True)
+        # Compute numbers of variables to be predicted/conditioned on
+        mask_size = tf.reduce_sum(mask, axis=[1, 3], keep_dims=True)
+        unmask_size = tf.reduce_sum(unmask, axis=[1, 3], keep_dims=True)
 
-    unreduced_loss *= pad_mask
-    if self.hparams.rescale_loss:
-      unreduced_loss *= dd / mask_size
+        unreduced_loss *= pad_mask
+        unreduced_loss *= dd / mask_size
 
-    # Compute average loss over entire set of variables
-    self.loss_total = tf.reduce_sum(unreduced_loss) / reduced_dd
+        # Compute average loss over entire set of variables
+        self.loss_total = tf.reduce_sum(unreduced_loss) / reduced_dd
 
-    # Compute separate losses for masked/unmasked variables
-    # NOTE: indexing the pitch dimension with 0 because the mask is constant
-    # across pitch. Except in the sigmoid case, but then the pitch dimension
-    # will have been reduced over.
-    self.reduced_mask_size = tf.reduce_sum(mask_size[:, :, 0, :])
-    self.reduced_unmask_size = tf.reduce_sum(unmask_size[:, :, 0, :])
+        # Compute separate losses for masked/unmasked variables
+        # NOTE: indexing the pitch dimension with 0 because the mask is constant
+        # across pitch. Except in the sigmoid case, but then the pitch dimension
+        # will have been reduced over.
+        self.reduced_mask_size = tf.reduce_sum(mask_size[:, :, 0, :])
+        self.reduced_unmask_size = tf.reduce_sum(unmask_size[:, :, 0, :])
 
-    assert_partition_op = tf.group(
-        tf.assert_equal(tf.reduce_sum(mask * unmask), 0.),
-        tf.assert_equal(self.reduced_mask_size + self.reduced_unmask_size,
-                        reduced_dd))
-    with tf.control_dependencies([assert_partition_op]):
-      self.loss_mask = (
-          tf.reduce_sum(mask * unreduced_loss) / self.reduced_mask_size)
-      self.loss_unmask = (
-          tf.reduce_sum(unmask * unreduced_loss) / self.reduced_unmask_size)
+        assert_partition_op = tf.group(
+            tf.assert_equal(tf.reduce_sum(mask * unmask), 0.),
+            tf.assert_equal(self.reduced_mask_size + self.reduced_unmask_size,
+                            reduced_dd))
+        with tf.control_dependencies([assert_partition_op]):
+          self.loss_mask = (
+              tf.reduce_sum(mask * unreduced_loss) / self.reduced_mask_size)
+          self.loss_unmask = (
+              tf.reduce_sum(unmask * unreduced_loss) / self.reduced_unmask_size)
 
-    # Check which loss to use as objective function.
-    self.loss = (
-        self.loss_mask if self.hparams.optimize_mask_only else self.loss_total)
+        self.loss = self.loss_total # this is what train_op depends on
 
   def residual_init(self):
     if not self.hparams.use_residual:
@@ -312,48 +321,49 @@ class CoconetGraph(object):
 
   def apply_batchnorm(self, x):
     """Normalizes batch w/ moving population stats for training, o/w batch."""
-    output_dim = x.get_shape()[-1]
-    gammas = tf.get_variable(
-        'gamma', [1, 1, 1, output_dim],
-        initializer=tf.constant_initializer(0.1))
-    betas = tf.get_variable(
-        'beta', [output_dim], initializer=tf.constant_initializer(0.))
+    with tf.name_scope('apply_batchnorm'):
+        output_dim = x.get_shape()[-1]
+        gammas = tf.get_variable(
+            'gamma', [1, 1, 1, output_dim],
+            initializer=tf.constant_initializer(0.1))
+        betas = tf.get_variable(
+            'beta', [output_dim], initializer=tf.constant_initializer(0.))
 
-    popmean = tf.get_variable(
-        'popmean',
-        shape=[1, 1, 1, output_dim],
-        trainable=False,
-        collections=[
-            tf.GraphKeys.MODEL_VARIABLES, tf.GraphKeys.GLOBAL_VARIABLES
-        ],
-        initializer=tf.constant_initializer(0.0))
-    popvariance = tf.get_variable(
-        'popvariance',
-        shape=[1, 1, 1, output_dim],
-        trainable=False,
-        collections=[
-            tf.GraphKeys.MODEL_VARIABLES, tf.GraphKeys.GLOBAL_VARIABLES
-        ],
-        initializer=tf.constant_initializer(1.0))
+        popmean = tf.get_variable(
+            'popmean',
+            shape=[1, 1, 1, output_dim],
+            trainable=False,
+            collections=[
+                tf.GraphKeys.MODEL_VARIABLES, tf.GraphKeys.GLOBAL_VARIABLES
+            ],
+            initializer=tf.constant_initializer(0.0))
+        popvariance = tf.get_variable(
+            'popvariance',
+            shape=[1, 1, 1, output_dim],
+            trainable=False,
+            collections=[
+                tf.GraphKeys.MODEL_VARIABLES, tf.GraphKeys.GLOBAL_VARIABLES
+            ],
+            initializer=tf.constant_initializer(1.0))
 
-    decay = 0.01
-    if self.is_training:
-      batchmean, batchvariance = tf.nn.moments(x, [0, 1, 2], keep_dims=True)
-      mean, variance = batchmean, batchvariance
-      updates = [
-          popmean.assign_sub(decay * (popmean - mean)),
-          popvariance.assign_sub(decay * (popvariance - variance))
-      ]
-      # make update happen when mean/variance are used
-      with tf.control_dependencies(updates):
-        mean, variance = tf.identity(mean), tf.identity(variance)
-      self.popstats_by_batchstat[batchmean] = popmean
-      self.popstats_by_batchstat[batchvariance] = popvariance
-    else:
-      mean, variance = popmean, popvariance
+        decay = 0.01
+        if self.is_training:
+          batchmean, batchvariance = tf.nn.moments(x, [0, 1, 2], keep_dims=True)
+          mean, variance = batchmean, batchvariance
+          updates = [
+              popmean.assign_sub(decay * (popmean - mean)),
+              popvariance.assign_sub(decay * (popvariance - variance))
+          ]
+          # make update happen when mean/variance are used
+          with tf.control_dependencies(updates):
+            mean, variance = tf.identity(mean), tf.identity(variance)
+          self.popstats_by_batchstat[batchmean] = popmean
+          self.popstats_by_batchstat[batchvariance] = popvariance
+        else:
+          mean, variance = popmean, popvariance
 
-    return tf.nn.batch_normalization(x, mean, variance, betas, gammas,
-                                     self.hparams.batch_norm_variance_epsilon)
+        return tf.nn.batch_normalization(x, mean, variance, betas, gammas,
+                                         self.hparams.batch_norm_variance_epsilon)
 
   def apply_activation(self, x, layer):
     activation_func = layer.get('activation', tf.nn.relu)
@@ -371,15 +381,18 @@ class CoconetGraph(object):
 
 
 def get_placeholders(hparams):
-  return dict(
-      pianorolls=tf.placeholder(
-          tf.float32,
-          [None, None, hparams.num_pitches, hparams.num_instruments]),
-      masks=tf.placeholder(
-          tf.float32,
-          [None, None, hparams.num_pitches, hparams.num_instruments]),
-      lengths=tf.placeholder(tf.float32, [None]))
-
+    with tf.name_scope('placeholders'):
+        with tf.name_scope('pianorolls'):
+            pianorolls_placeholder = tf.placeholder(tf.float32, [None, None, hparams.num_pitches, hparams.num_instruments])
+        with tf.name_scope('masks'):
+            masks_placeholder = tf.placeholder(tf.float32, [None, None, hparams.num_pitches, hparams.num_instruments])
+        with tf.name_scope('lengths'):
+            lengths_placeholder = tf.placeholder(tf.float32, [None])
+        return dict(
+            pianorolls=pianorolls_placeholder,
+            masks=masks_placeholder,
+            lengths=lengths_placeholder
+        )
 
 def build_graph(is_training,
                 hparams,
@@ -389,9 +402,9 @@ def build_graph(is_training,
   """Builds the model graph."""
   if placeholders is None and use_placeholders:
     placeholders = get_placeholders(hparams)
-  initializer = tf.random_uniform_initializer(-hparams.init_scale,
-                                              hparams.init_scale)
-  with tf.variable_scope('model', reuse=None, initializer=initializer):
+  with tf.name_scope('initializer'):
+      initializer = tf.random_uniform_initializer(-hparams.init_scale, hparams.init_scale)
+  with tf.variable_scope('CoconetGraph', reuse=None, initializer=initializer):
     graph = CoconetGraph(
         is_training=is_training,
         hparams=hparams,
@@ -401,18 +414,19 @@ def build_graph(is_training,
   return graph
 
 
-def load_checkpoint(path, instantiate_sess=True):
-  """Builds graph, loads checkpoint, and returns wrapped model."""
-  tf.logging.info('Loading checkpoint from %s', path)
-  hparams = lib_hparams.load_hparams(path)
-  model = build_graph(is_training=False, hparams=hparams)
-  wmodel = lib_tfutil.WrappedModel(model, model.loss.graph, hparams)
-  if not instantiate_sess:
-    return wmodel
-  with wmodel.graph.as_default():
-    wmodel.sess = tf.Session()
-    saver = tf.train.Saver()
-    tf.logging.info('loading checkpoint %s', path)
-    chkpt_path = os.path.join(path, 'best_model.ckpt')
-    saver.restore(wmodel.sess, chkpt_path)
-  return wmodel
+# def load_checkpoint(path, instantiate_sess=True):
+#   """Builds graph, loads checkpoint, and returns wrapped model."""
+#   tf.logging.info('Loading checkpoint from %s', path)
+#   with tf.name_scope('checkpoint'):
+#       hparams = lib_hparams.load_hparams(path)
+#       model = build_graph(is_training=False, hparams=hparams)
+#       wmodel = lib_tfutil.WrappedModel(model, model.loss.graph, hparams)
+#       if not instantiate_sess:
+#         return wmodel
+#       with wmodel.graph.as_default():
+#         wmodel.sess = tf.Session()
+#         saver = tf.train.Saver()
+#         tf.logging.info('loading checkpoint %s', path)
+#         chkpt_path = os.path.join(path, 'best_model.ckpt')
+#         saver.restore(wmodel.sess, chkpt_path)
+#       return wmodel

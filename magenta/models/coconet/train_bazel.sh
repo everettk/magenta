@@ -46,7 +46,7 @@ interleave_split_every_n_layers=2
 # Run command.
 python coconet_train.py \
   --logdir=$logdir \
-  --log_process=True \
+  --log_progress=True \
   --data_dir=$data_dir \
   --dataset=$dataset \
   --crop_piece_len=$crop_piece_len \
@@ -63,5 +63,4 @@ python coconet_train.py \
   --dilate_time_only=$dilate_time_only \
   --repeat_last_dilation_level=$repeat_last_dilation_level \
   --num_pointwise_splits=$num_pointwise_splits \
-  --interleave_split_every_n_layers=$interleave_split_every_n_layers \
-  --logtostderr
+  --interleave_split_every_n_layers=$interleave_split_every_n_layers
