@@ -123,7 +123,7 @@ class CoconetGraph(object):
         pianorolls, masks = self.pianorolls, self.masks
         pianorolls *= 1. - masks
         if self.hparams.mask_indicates_context:
-          print("MASK_INDICATES_CONTEXT: ", self.hparams.mask_indicates_context)
+          # print("MASK_INDICATES_CONTEXT: ", self.hparams.mask_indicates_context)
           # flip meaning of mask for convnet purposes: after flipping, mask is hot
           # where values are known. this makes more sense in light of padding done
           # by convolution operations: the padded area will have zero mask,
@@ -155,14 +155,14 @@ class CoconetGraph(object):
   def compute_predictions(self, logits):
     with tf.name_scope('predictions'):
         if self.hparams.use_softmax_loss:
-            print("ARE WE USING SOFTMAX LOSS FOR PREDICTIONS: ", self.hparams.use_softmax_loss)
+            #print("ARE WE USING SOFTMAX LOSS FOR PREDICTIONS: ", self.hparams.use_softmax_loss)
             return tf.nn.softmax(logits, dim=2)
         return tf.nn.sigmoid(logits)
 
   def compute_cross_entropy(self, logits, labels):
     with tf.name_scope('cross_entropy'):
         if self.hparams.use_softmax_loss:
-          print("ARE WE USING SOFTMAX LOSS FOR CROSS ENTROPY: ", self.hparams.use_softmax_loss)
+          #print("ARE WE USING SOFTMAX LOSS FOR CROSS ENTROPY: ", self.hparams.use_softmax_loss)
           # don't use tf.nn.softmax_cross_entropy because we need the shape to
           # remain constant
           with tf.name_scope('softmax_loss'):
@@ -174,14 +174,16 @@ class CoconetGraph(object):
   def compute_loss(self, unreduced_loss):
     """Computes scaled loss based on mask out size."""
     with tf.name_scope('compute_loss'):
+        #unreduced_loss = tf.Print(unreduced_loss_to_print, [unreduced_loss_to_print], "UNREDUCED LOSS: ", summarize=-1)
+
         # construct mask to identify zero padding that was introduced to
         # make the batch rectangular
         batch_duration = tf.shape(self.pianorolls)[1]
-        print("BATCH DURATION: ", batch_duration)
+        # batch_duration = tf.Print(batch_duration_to_print, [batch_duration_to_print], "BATCH DURATION TENSOR: ")
         indices = tf.to_float(tf.range(batch_duration))
         pad_mask = tf.to_float(
             indices[None, :, None, None] < self.lengths[:, None, None, None])
-        print("PAD MASK: ", pad_mask)
+        #pad_mask = tf.Print(pad_mask_to_print, [pad_mask_to_print], "PAD MASK TENSOR: ", summarize=-1)
 
         # construct mask and its complement, respecting pad mask
         mask = pad_mask * self.masks
@@ -193,10 +195,14 @@ class CoconetGraph(object):
             self.lengths[:, None, None, None] * tf.to_float(
                 tf.shape(self.pianorolls)[3])) # 3 is the variable axis
         reduced_dd = tf.reduce_sum(dd)
+        #reduced_dd = tf.Print(reduced_dd_to_print, [reduced_dd_to_print], "REDUCED DD: ", summarize=-1)
 
         # Compute numbers of variables to be predicted/conditioned on
         mask_size = tf.reduce_sum(mask, axis=[1, 3], keep_dims=True)
         unmask_size = tf.reduce_sum(unmask, axis=[1, 3], keep_dims=True)
+        #mask_size = tf.Print(mask_size_to_print, [mask_size_to_print], "MASK SIZE: ", summarize=-1)
+        #unmask_size = tf.Print(unmask_size_to_print, [unmask_size_to_print], "UNMASK SIZE: ", summarize=-1)
+
 
         unreduced_loss *= pad_mask
         unreduced_loss *= dd / mask_size

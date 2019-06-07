@@ -25,22 +25,16 @@ data_dir=/Users/keverett/dev/bach-generator/magenta/magenta/models/coconet/train
 dataset=Jsb16thSeparated
 
 # Data preprocessing.
-crop_piece_len=32
+crop_piece_len=128
 separate_instruments=True
 quantization_level=0.125  # 16th notes
 
 # Hyperparameters.
 maskout_method=orderless
-num_layers=32
-num_filters=64
+num_layers=64
+num_filters=128
 batch_size=10
-use_sep_conv=True
-architecture='dilated'
-num_dilation_blocks=1
-dilate_time_only=False
-repeat_last_dilation_level=False
-num_pointwise_splits=2
-interleave_split_every_n_layers=2
+architecture='straight'
 
 
 # Run command.
@@ -57,10 +51,4 @@ python coconet_train.py \
   --num_filters=$num_filters \
   --use_residual \
   --batch_size=$batch_size \
-  --use_sep_conv=$use_sep_conv \
-  --architecture=$architecture \
-  --num_dilation_blocks=$num_dilation_blocks \
-  --dilate_time_only=$dilate_time_only \
-  --repeat_last_dilation_level=$repeat_last_dilation_level \
-  --num_pointwise_splits=$num_pointwise_splits \
-  --interleave_split_every_n_layers=$interleave_split_every_n_layers
+  --architecture=$architecture

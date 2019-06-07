@@ -283,8 +283,7 @@ def main(unused_argv):
         save_model_secs=FLAGS.save_model_secs)
     with sv.PrepareSession() as sess:
       epoch_count = 0
-      #while epoch_count < FLAGS.num_epochs or not FLAGS.num_epochs:
-      while epoch_count < 1:
+      while epoch_count < FLAGS.num_epochs or not FLAGS.num_epochs:
         if sv.should_stop():
           break
 

@@ -60,8 +60,8 @@ class Dataset(lib_util.Factory):
     print("Loading data from", data_path)
     with tf.gfile.Open(data_path, "rb") as p:
       self.data = np.load(p, allow_pickle=True, encoding='latin1')[fold]
-      print("SLICING TO ONE DATA POINT")
-      self.data = self.data[0:1]
+      #print("SLICING TO ONE DATA POINT")
+      #self.data = self.data[0:1]
 
   @property
   def name(self):
