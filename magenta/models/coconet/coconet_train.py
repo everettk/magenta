@@ -200,7 +200,10 @@ def run_epoch(supervisor, sess, m, dataset, hparams, eval_op, experiment_type,
     losses_mask.add(loss_mask * reduced_mask_size, reduced_mask_size)
     losses_unmask.add(loss_unmask * reduced_unmask_size, reduced_unmask_size)
 
-    losses.add(loss, 1)
+    if hparams.optimize_mask_only:
+      losses.add(loss * reduced_mask_size, reduced_mask_size)
+    else:
+      losses.add(loss, 1)
 
   # Collect run statistics.
 

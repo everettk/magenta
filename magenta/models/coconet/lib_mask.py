@@ -115,7 +115,12 @@ class OrderlessMaskoutMethod(MaskoutMethod):
     """
     tt, pp, ii = shape
 
-    d = tt * ii
+    if separate_instruments:
+      d = tt * ii
+    else:
+      assert ii == 1
+      d = tt * pp
+
     # sample a mask size
     k = np.random.choice(d) + 1
     # sample a mask of size k
@@ -123,6 +128,9 @@ class OrderlessMaskoutMethod(MaskoutMethod):
 
     mask = np.zeros(d, dtype=np.float32)
     mask[i] = 1.
-    mask = mask.reshape((tt, 1, ii))
-    mask = np.tile(mask, [1, pp, 1])
+    if separate_instruments:
+      mask = mask.reshape((tt, 1, ii))
+      mask = np.tile(mask, [1, pp, 1])
+    else:
+      mask = mask.reshape((tt, pp, 1))
     return mask
