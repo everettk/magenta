@@ -20,8 +20,8 @@ from __future__ import print_function
 import collections
 import os
 
-from magenta.models.coconet import lib_hparams
-from magenta.models.coconet import lib_tfutil
+import lib_hparams
+import lib_tfutil
 import tensorflow as tf
 
 

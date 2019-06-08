@@ -35,7 +35,7 @@ strategy=igibbs
 tfsample=true
 
 # Run command.
-python coconet_sample.py \
+python3 coconet_sample.py \
 --checkpoint="$checkpoint" \
 --gen_batch_size=$gen_batch_size \
 --piece_length=$piece_length \
@@ -44,5 +44,3 @@ python coconet_sample.py \
 --tfsample=$tfsample \
 --generation_output_dir=$generation_output_dir \
 --logtostderr
-
-

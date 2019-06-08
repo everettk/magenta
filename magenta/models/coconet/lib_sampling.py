@@ -18,11 +18,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from magenta.models.coconet import lib_data
-from magenta.models.coconet import lib_logging
-from magenta.models.coconet import lib_mask
-from magenta.models.coconet import lib_tfutil
-from magenta.models.coconet import lib_util
+import lib_data
+import lib_logging
+import lib_mask
+import lib_tfutil
+import lib_util
 import numpy as np
 
 ################

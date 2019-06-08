@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import time
 
-from magenta.models.coconet import lib_tfutil
-from magenta.models.coconet import lib_util
+import lib_tfutil
+import lib_util
 import numpy as np
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 import tensorflow as tf
 
 
@@ -287,7 +287,7 @@ class NoteEvaluator(BaseEvaluator):
     self._update_lls(lls, xs, pxhats, ts, ds)
     return lls
 
-  def _draw_ordering(self, tt, dd):
+  def draw_ordering(self, tt, dd):
     o = np.arange(tt * dd, dtype=np.int32)
     if not self.chronological:
       np.random.shuffle(o)

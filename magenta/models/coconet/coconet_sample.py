@@ -23,13 +23,13 @@ import os
 import re
 import time
 
-from magenta.models.coconet import lib_graph
-from magenta.models.coconet import lib_logging
-from magenta.models.coconet import lib_mask
-from magenta.models.coconet import lib_pianoroll
-from magenta.models.coconet import lib_sampling
-from magenta.models.coconet import lib_tfsampling
-from magenta.models.coconet import lib_util
+import lib_graph
+import lib_logging
+import lib_mask
+import lib_pianoroll
+import lib_sampling
+import lib_tfsampling
+import lib_util
 import numpy as np
 import pretty_midi
 import tensorflow as tf
@@ -625,68 +625,6 @@ class CompleteMidiStrategy(BaseStrategy):
     return pianorolls
 
 # pylint:enable=missing-docstring
-
-
-# ok something else entirely.
-def parse_art_to_pianoroll(art, tt=None):
-  """Parse ascii art for pianoroll."""
-  assert tt is not None
-  ii = 4
-  # TODO(annahuang): Properties of the model/data_tools, not of the ascii art.
-  pmin, pmax = 36, 81
-  pp = pmax - pmin + 1
-
-  pianoroll = np.zeros((tt, pp, ii), dtype=np.float32)
-
-  lines = art.strip().splitlines()
-  klasses = "cCdDefFgGaAb"
-  klass = None
-  octave = None
-  cycle = None
-  for li, line in enumerate(lines):
-    match = re.match(r"^\s*(?P<class>[a-gA-G])?(?P<octave>[0-9]|10)?\s*\|"
-                     r"(?P<grid>[SATB +-]*)\|\s*$", line)
-    if not match:
-      if cycle is not None:
-        print("ignoring unmatched line", li, repr(line))
-      continue
-
-    if cycle is None:
-      # set up cycle through pitches and octaves
-      print(match.groupdict())
-      assert match.group("class") and match.group("class") in klasses
-      assert match.group("octave")
-      klass = match.group("class")
-      octave = int(match.group("octave"))
-      cycle = reversed(list(it.product(range(octave + 1), klasses)))
-      cycle = list(cycle)
-      print(cycle)
-      cycle = it.dropwhile(lambda ok: ok[1] != match.group("class"), cycle)  # pylint: disable=cell-var-from-loop
-      o, k = next(cycle)
-      assert k == klass
-      assert o == octave
-      cycle = list(cycle)
-      print(cycle)
-      cycle = iter(cycle)
-    else:
-      octave, klass = next(cycle)
-      if match.group("class"):
-        assert klass == match.group("class")
-      if match.group("octave"):
-        assert octave == int(match.group("octave"))
-
-    pitch = octave * len(klasses) + klasses.index(klass)
-    print(klass, octave, pitch, "\t", line)
-
-    p = pitch - pmin
-    for t, c in enumerate(match.group("grid")):
-      if c in "+- ":
-        continue
-      i = "SATB".index(c)
-      pianoroll[t, p, i] = 1.
-
-  return pianoroll
-
 
 if __name__ == "__main__":
   tf.app.run()

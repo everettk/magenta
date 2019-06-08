@@ -19,10 +19,10 @@ from __future__ import print_function
 
 import os
 
-from magenta.models.coconet import lib_data
-from magenta.models.coconet import lib_evaluation
-from magenta.models.coconet import lib_graph
-from magenta.models.coconet import lib_util
+import lib_data
+import lib_evaluation
+import lib_graph
+import lib_util
 import numpy as np
 import tensorflow as tf
 
@@ -38,10 +38,10 @@ flags.DEFINE_string('fold', None,
 flags.DEFINE_string('fold_index', None,
                     'Optionally, index of particular data point in fold to '
                     'evaluate.')
-flags.DEFINE_string('unit', None, 'Note or frame or example.')
+flags.DEFINE_string('unit', 'note', 'Note or frame or example.')
 flags.DEFINE_integer('ensemble_size', 5,
                      'Number of ensemble members to average.')
-flags.DEFINE_bool('chronological', False,
+flags.DEFINE_bool('chronological', True,
                   'Indicates evaluation should proceed in chronological order.')
 flags.DEFINE_string('checkpoint', None, 'Path to checkpoint directory.')
 flags.DEFINE_string('sample_npy_path', None, 'Path to samples to be evaluated.')
@@ -77,6 +77,9 @@ def main(unused_argv):
     eval_logdir = os.path.join(FLAGS.eval_logdir, EVAL_SUBDIR)
     tf.gfile.MakeDirs(eval_logdir)
 
+  print("About to make evaluator...")
+  print("unit: ", FLAGS.unit)
+  print("chronological: ", FLAGS.chronological)
   evaluator = lib_evaluation.BaseEvaluator.make(
       FLAGS.unit, wmodel=wmodel, chronological=FLAGS.chronological)
   evaluator = lib_evaluation.EnsemblingEvaluator(evaluator, FLAGS.ensemble_size)
@@ -135,8 +138,9 @@ def get_fold_pianorolls(fold, hparams):
   tf.logging.info('Retrieving pianorolls from %s set of %s dataset.',
                   fold, hparams.dataset)
   print_statistics(pianorolls)
-  if FLAGS.fold_index is not None:
-    pianorolls = [pianorolls[int(FLAGS.fold_index)]]
+  pianorolls = pianorolls[0:1]
+  # if FLAGS.fold_index is not None:
+  #   pianorolls = [pianorolls[int(FLAGS.fold_index)]]
   return pianorolls
 
 
