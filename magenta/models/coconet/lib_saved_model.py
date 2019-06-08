@@ -41,22 +41,23 @@ def get_signature_def(model, use_tf_sampling):
 
 def export_saved_model(model, destination, tags, use_tf_sampling):
   """Exports the given model as SavedModel to destination."""
-  if model is None or destination is None or not destination:
-    tf.logging.error('No model or destination provided.')
-    return
+  with tf.name_scope('export_saved_model'):
+      if model is None or destination is None or not destination:
+        tf.logging.error('No model or destination provided.')
+        return
 
-  builder = tf.saved_model.builder.SavedModelBuilder(destination)
+      builder = tf.saved_model.builder.SavedModelBuilder(destination)
 
-  signature_def_map = {
-      tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
-      get_signature_def(model, use_tf_sampling)}
+      signature_def_map = {
+          tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY:
+          get_signature_def(model, use_tf_sampling)}
 
-  builder.add_meta_graph_and_variables(
-      model.sess,
-      tags,
-      signature_def_map=signature_def_map,
-      strip_default_attrs=True)
-  builder.save()
+      builder.add_meta_graph_and_variables(
+          model.sess,
+          tags,
+          signature_def_map=signature_def_map,
+          strip_default_attrs=True)
+      builder.save()
 
 
 def load_saved_model(sess, path, tags):

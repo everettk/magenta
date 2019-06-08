@@ -41,12 +41,13 @@ class ExportSavedModelTest(tf.test.TestCase):
       hparams.dump(p)
 
     with tf.Graph().as_default():
-      lib_graph.build_graph(is_training=True, hparams=hparams)
-      sess = tf.Session()
-      sess.run(tf.global_variables_initializer())
+      tf.name_scope('export_saved_model_test'):
+          lib_graph.build_graph(is_training=True, hparams=hparams)
+          sess = tf.Session()
+          sess.run(tf.global_variables_initializer())
 
-      saver = tf.train.Saver()
-      saver.save(sess, save_path)
+          saver = tf.train.Saver()
+          saver.save(sess, save_path)
 
     return logdir
 

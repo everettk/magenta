@@ -60,6 +60,9 @@ class Dataset(lib_util.Factory):
     print("Loading data from", data_path)
     with tf.gfile.Open(data_path, "rb") as p:
       self.data = np.load(p, allow_pickle=True, encoding='latin1')[fold]
+      print("There are ", len(self.data), " examples in the ", fold, " fold.")
+      #print("SLICING TO TEN DATA POINTS")
+      #self.data = self.data[0:10]
 
   @property
   def name(self):
@@ -126,6 +129,7 @@ class Dataset(lib_util.Factory):
     (pianorolls, masks), lengths = lib_util.pad_and_stack(pianorolls, masks)
     assert pianorolls.ndim == 4 and masks.ndim == 4
     assert pianorolls.shape == masks.shape
+    #print("Numbers of lengths in lengths from this batch: ", len(lengths))
     return Batch(pianorolls=pianorolls, masks=masks, lengths=lengths)
 
   def update_hparams(self, hparams):

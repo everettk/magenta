@@ -18,14 +18,14 @@ set -x
 set -e
 
 # Change this to directory where you want to save experiment logs:
-logdir=$HOME/logs
+logdir=logs
 # Change this to directory where data is loaded from:
-data_dir=$HOME/data/
+data_dir=traindata
 # Change this to your dataset class, which can be defined in lib_data.py.
 dataset=Jsb16thSeparated
 
 # Data preprocessing.
-crop_piece_len=32
+crop_piece_len=64
 separate_instruments=True
 quantization_level=0.125  # 16th notes
 
@@ -33,7 +33,7 @@ quantization_level=0.125  # 16th notes
 maskout_method=orderless
 num_layers=32
 num_filters=64
-batch_size=10
+batch_size=20
 use_sep_conv=True
 architecture='dilated'
 num_dilation_blocks=1
@@ -44,7 +44,7 @@ interleave_split_every_n_layers=2
 
 
 # Run command.
-python coconet_train.py \
+python3 coconet_train.py \
   --logdir=$logdir \
   --log_process=True \
   --data_dir=$data_dir \

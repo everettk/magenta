@@ -120,6 +120,7 @@ class OrderlessMaskoutMethod(MaskoutMethod):
     else:
       assert ii == 1
       d = tt * pp
+
     # sample a mask size
     k = np.random.choice(d) + 1
     # sample a mask of size k

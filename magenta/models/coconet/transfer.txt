@@ -1,5 +1,7 @@
 coconet_evaluate.py
 evalmodel_bazel.sh
+coconet_train.py
+train_bazel.sh
 lib_util.py
 lib_hparams.py
 lib_graph.py
@@ -8,5 +10,3 @@ lib_mask.py
 lib_pianoroll.py
 lib_tfutil.py
 lib_evaluation.py
-coconet_train.py
-train_bazel.sh
