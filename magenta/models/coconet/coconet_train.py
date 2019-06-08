@@ -20,13 +20,14 @@ from __future__ import print_function
 import os
 import time
 
-from magenta.models.coconet import lib_data
-from magenta.models.coconet import lib_graph
-from magenta.models.coconet import lib_hparams
-from magenta.models.coconet import lib_util
+import lib_data
+import lib_graph
+import lib_hparams
+import lib_util
 import numpy as np
 import tensorflow as tf
-#import ipdb
+import wandb
+
 
 FLAGS = tf.app.flags.FLAGS
 flags = tf.app.flags
@@ -94,6 +95,8 @@ flags.DEFINE_bool('use_residual', True, 'Add residual connections or not.')
 flags.DEFINE_integer('batch_size', 20,
                      'The batch size for training and validating the model.')
 
+#flags.DEFINE_bool('use_softmax_loss', True, 'Whether to use softmax loss or not.')
+
 # Mask related.
 flags.DEFINE_string('maskout_method', 'orderless',
                     "The choices include: 'bernoulli' "
@@ -106,7 +109,7 @@ flags.DEFINE_bool('optimize_mask_only', False,
                   'Optimize masked predictions only.')
 flags.DEFINE_bool('rescale_loss', True, 'Rescale loss based on context size.')
 flags.DEFINE_integer(
-    'patience', 5,
+    'patience', 10,
     'Number of epochs to wait for improvement before decaying learning rate.')
 
 flags.DEFINE_float('corrupt_ratio', 0.5, 'Fraction of variables to mask out.')
@@ -184,6 +187,12 @@ def run_epoch(supervisor, sess, m, dataset, hparams, eval_op, experiment_type,
      reduced_unmask_size, learning_rate, _) = sess.run(
          fetches, feed_dict=feed_dict)
 
+    run_stats = dict()
+    run_stats['loss_total'] = loss_total
+    run_stats['loss'] = loss
+    run_stats['loss_mask'] = loss_mask
+    run_stats['loss_unmask'] = loss_unmask
+
     # Aggregate performances.
     losses_total.add(loss_total, 1)
     # Multiply the mean loss_mask by reduced_mask_size for aggregation as the
@@ -194,13 +203,18 @@ def run_epoch(supervisor, sess, m, dataset, hparams, eval_op, experiment_type,
     losses.add(loss, 1)
 
   # Collect run statistics.
-  run_stats = dict()
-  run_stats['loss_mask'] = losses_mask.mean
-  run_stats['loss_unmask'] = losses_unmask.mean
-  run_stats['loss_total'] = losses_total.mean
-  run_stats['loss'] = losses.mean
+
+  run_stats['agg_loss_mask'] = losses_mask.mean
+  run_stats['agg_loss_unmask'] = losses_unmask.mean
+  run_stats['agg_loss_total'] = losses_total.mean
+  run_stats['agg_loss'] = losses.mean
   if experiment_type == 'train':
     run_stats['learning_rate'] = float(learning_rate)
+
+  typed_run_stats = {}
+  for stat in run_stats:
+      typed_run_stats[experiment_type + '_' + stat] = run_stats[stat]
+  wandb.log(typed_run_stats, step=epoch_count)
 
   # Make summaries.
   if FLAGS.log_progress:
@@ -241,13 +255,19 @@ def main(unused_argv):
   print('current dir:', os.path.curdir)
   train_data = lib_data.get_dataset(FLAGS.data_dir, hparams, 'train')
   valid_data = lib_data.get_dataset(FLAGS.data_dir, hparams, 'valid')
+  # # HARDCODE: make the validation data the same as the training data so
+  # # that we can ensure the model at least memorizes one data point
+  # valid_data = train_data
   print('# of train_data:', train_data.num_examples)
   print('# of valid_data:', valid_data.num_examples)
+  wandb.config.train_examples = train_data.num_examples
+  wandb.config.valid_examples = valid_data.num_examples
   if train_data.num_examples < hparams.batch_size:
     print('reducing batch_size to %i' % train_data.num_examples)
     hparams.batch_size = train_data.num_examples
 
   train_data.update_hparams(hparams)
+  wandb.config.update(hparams)
 
   # Save hparam configs.
   logdir = os.path.join(FLAGS.logdir, hparams.log_subdir_str)
@@ -331,6 +351,9 @@ class Tracker(object):
         self.saver.save(sess, self.save_path)
         tf.logging.info('Storing best model so far with loss %.4f at %s.' %
                         (loss, self.save_path))
+        self.saver.save(sess, os.path.join(wandb.run.dir, "best_model.ckpt"))
+        print("Also saving best model so far to wandb.")
+
       self.best = loss
       self.age = 0
       self.true_age = 0
@@ -384,4 +407,5 @@ def _hparams_from_flags():
 
 
 if __name__ == '__main__':
+  wandb.init(config={}, project="bach-baselines", tensorboard=True)
   tf.app.run(main=main)

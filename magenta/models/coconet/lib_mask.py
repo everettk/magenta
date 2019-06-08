@@ -17,7 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from magenta.models.coconet import lib_util
+import lib_util
 import numpy as np
 
 
@@ -115,11 +115,7 @@ class OrderlessMaskoutMethod(MaskoutMethod):
     """
     tt, pp, ii = shape
 
-    if separate_instruments:
-      d = tt * ii
-    else:
-      assert ii == 1
-      d = tt * pp
+    d = tt * ii
     # sample a mask size
     k = np.random.choice(d) + 1
     # sample a mask of size k
@@ -127,9 +123,6 @@ class OrderlessMaskoutMethod(MaskoutMethod):
 
     mask = np.zeros(d, dtype=np.float32)
     mask[i] = 1.
-    if separate_instruments:
-      mask = mask.reshape((tt, 1, ii))
-      mask = np.tile(mask, [1, pp, 1])
-    else:
-      mask = mask.reshape((tt, pp, 1))
+    mask = mask.reshape((tt, 1, ii))
+    mask = np.tile(mask, [1, pp, 1])
     return mask

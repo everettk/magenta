@@ -20,8 +20,8 @@ from __future__ import print_function
 import collections
 import os
 
-from magenta.models.coconet import lib_hparams
-from magenta.models.coconet import lib_tfutil
+import lib_hparams
+import lib_tfutil
 import tensorflow as tf
 
 
@@ -147,6 +147,8 @@ class CoconetGraph(object):
 
     # FIXME 0.5 -> hparams.decay_rate
     self.decay_op = tf.assign(self.learning_rate, 0.5 * self.learning_rate)
+    # HARDCODE: take out the learning rate decay
+    #self.decay_op = tf.assign(self.learning_rate, self.learning_rate)
     with tf.name_scope('adam_optimizer'):
         self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
     with tf.name_scope('train_op'):
@@ -156,13 +158,16 @@ class CoconetGraph(object):
     with tf.name_scope('predictions'):
         if self.hparams.use_softmax_loss:
             #print("ARE WE USING SOFTMAX LOSS FOR PREDICTIONS: ", self.hparams.use_softmax_loss)
-            return tf.nn.softmax(logits, dim=2)
+            predictions = tf.nn.softmax(logits, dim=2)
+            # predictions = tf.Print(predictions_to_print, [predictions_to_print], "PREDICTIONS TENSOR: ")
+            return predictions
         return tf.nn.sigmoid(logits)
 
   def compute_cross_entropy(self, logits, labels):
+    #print("LOGITS: ", logits)
+    #labels_printed = tf.Print(labels, [labels], "LABELS TENSOR: ")
     with tf.name_scope('cross_entropy'):
         if self.hparams.use_softmax_loss:
-          #print("ARE WE USING SOFTMAX LOSS FOR CROSS ENTROPY: ", self.hparams.use_softmax_loss)
           # don't use tf.nn.softmax_cross_entropy because we need the shape to
           # remain constant
           with tf.name_scope('softmax_loss'):
@@ -174,7 +179,7 @@ class CoconetGraph(object):
   def compute_loss(self, unreduced_loss):
     """Computes scaled loss based on mask out size."""
     with tf.name_scope('compute_loss'):
-        #unreduced_loss = tf.Print(unreduced_loss_to_print, [unreduced_loss_to_print], "UNREDUCED LOSS: ", summarize=-1)
+        # unreduced_loss = tf.Print(unreduced_loss_to_print, [unreduced_loss_to_print], "UNREDUCED LOSS: ", summarize=-1)
 
         # construct mask to identify zero padding that was introduced to
         # make the batch rectangular
@@ -420,19 +425,19 @@ def build_graph(is_training,
   return graph
 
 
-# def load_checkpoint(path, instantiate_sess=True):
-#   """Builds graph, loads checkpoint, and returns wrapped model."""
-#   tf.logging.info('Loading checkpoint from %s', path)
-#   with tf.name_scope('checkpoint'):
-#       hparams = lib_hparams.load_hparams(path)
-#       model = build_graph(is_training=False, hparams=hparams)
-#       wmodel = lib_tfutil.WrappedModel(model, model.loss.graph, hparams)
-#       if not instantiate_sess:
-#         return wmodel
-#       with wmodel.graph.as_default():
-#         wmodel.sess = tf.Session()
-#         saver = tf.train.Saver()
-#         tf.logging.info('loading checkpoint %s', path)
-#         chkpt_path = os.path.join(path, 'best_model.ckpt')
-#         saver.restore(wmodel.sess, chkpt_path)
-#       return wmodel
+def load_checkpoint(path, instantiate_sess=True):
+  """Builds graph, loads checkpoint, and returns wrapped model."""
+  tf.logging.info('Loading checkpoint from %s', path)
+  with tf.name_scope('checkpoint'):
+      hparams = lib_hparams.load_hparams(path)
+      model = build_graph(is_training=False, hparams=hparams)
+      wmodel = lib_tfutil.WrappedModel(model, model.loss.graph, hparams)
+      if not instantiate_sess:
+        return wmodel
+      with wmodel.graph.as_default():
+        wmodel.sess = tf.Session()
+        saver = tf.train.Saver()
+        tf.logging.info('loading checkpoint %s', path)
+        chkpt_path = os.path.join(path, 'best_model.ckpt')
+        saver.restore(wmodel.sess, chkpt_path)
+      return wmodel

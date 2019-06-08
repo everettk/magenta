@@ -263,6 +263,7 @@ def numpy_seed(seed):
 
 
 def random_crop(x, length):
+  #print("Cropping example from original length ", str(len(x)), " to length ", str(length), ".")
   leeway = len(x) - length
   start = np.random.randint(1 + max(0, leeway))
   x = x[start:start + length]
