@@ -33,7 +33,7 @@ eval_logdir="eval_logdir"
 # Evaluation settings.
 fold=valid
 fold_index=1  # Optionally can specify index of specific piece to be evaluated.
-unit=frame
+unit=note
 chronological=True
 ensemble_size=1  # Number of different orderings to average.
 
@@ -44,7 +44,8 @@ python3 coconet_evaluate.py \
 --checkpoint=$checkpoint \
 --fold=$fold \
 --chronological=$chronological \
---ensemble_size=$ensemble_size
+--ensemble_size=$ensemble_size \
+--unit=$unit
 #--fold_index=$fold_index \
 #--unit=$unit \
 #--fold_index=$fold_index
