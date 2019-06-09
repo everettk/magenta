@@ -47,7 +47,7 @@ flags.DEFINE_string('checkpoint', None, 'Path to checkpoint directory.')
 flags.DEFINE_string('sample_npy_path', None, 'Path to samples to be evaluated.')
 
 
-EVAL_SUBDIR = 'eval_stats'
+EVAL_SUBDIR = 'eval'
 
 
 def main(unused_argv):
@@ -77,9 +77,6 @@ def main(unused_argv):
     eval_logdir = os.path.join(FLAGS.eval_logdir, EVAL_SUBDIR)
     tf.gfile.MakeDirs(eval_logdir)
 
-  print("About to make evaluator...")
-  print("unit: ", FLAGS.unit)
-  print("chronological: ", FLAGS.chronological)
   evaluator = lib_evaluation.BaseEvaluator.make(
       FLAGS.unit, wmodel=wmodel, chronological=FLAGS.chronological)
   evaluator = lib_evaluation.EnsemblingEvaluator(evaluator, FLAGS.ensemble_size)
@@ -135,6 +132,7 @@ def evaluate_paths(paths, evaluator, unused_hparams, eval_logdir):
 def get_fold_pianorolls(fold, hparams):
   dataset = lib_data.get_dataset(FLAGS.data_dir, hparams, fold)
   pianorolls = dataset.get_pianorolls()
+  pianorolls[0:2]
   tf.logging.info('Retrieving pianorolls from %s set of %s dataset.',
                   fold, hparams.dataset)
   print_statistics(pianorolls)

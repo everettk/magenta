@@ -28,11 +28,11 @@ checkpoint=$1
 data_dir="testdata"
 
 # Change this to where evaluation results are stored.
-eval_logdir="eval_logdir"
+eval_logdir=$1
 
 # Evaluation settings.
 fold=valid
-fold_index=1  # Optionally can specify index of specific piece to be evaluated.
+#fold_index=1  # Optionally can specify index of specific piece to be evaluated.
 unit=note
 chronological=True
 ensemble_size=1  # Number of different orderings to average.
@@ -46,6 +46,3 @@ python3 coconet_evaluate.py \
 --chronological=$chronological \
 --ensemble_size=$ensemble_size \
 --unit=$unit
-#--fold_index=$fold_index \
-#--unit=$unit \
-#--fold_index=$fold_index

@@ -109,7 +109,7 @@ flags.DEFINE_bool('optimize_mask_only', False,
                   'Optimize masked predictions only.')
 flags.DEFINE_bool('rescale_loss', True, 'Rescale loss based on context size.')
 flags.DEFINE_integer(
-    'patience', 10,
+    'patience', 5,
     'Number of epochs to wait for improvement before decaying learning rate.')
 
 flags.DEFINE_float('corrupt_ratio', 0.5, 'Fraction of variables to mask out.')
